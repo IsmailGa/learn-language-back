@@ -1,0 +1,208 @@
+from typing import Optional
+from uuid import UUID
+from fastapi import APIRouter, HTTPException, status
+from sqlalchemy import select, func # Changed from sqlmodel.select to sqlalchemy.select, added func
+from sqlalchemy.orm import selectinload
+
+from app.api.deps import CurrentUser, DbSession
+from app.models.course import Course, Unit, Lesson, Exercise # Added Exercise
+from app.models.progress import UserProgress
+from app.schemas.courses import CourseBase, CourseCreate, CourseUpdate, Course as CourseSchema, CourseWithUnits, UnitWithLessons, LessonWithExercises, ExerciseSchema
+
+router = APIRouter(prefix="/courses", tags=["courses"])
+
+
+@router.get("")
+async def list_courses(session: DbSession) -> list[CourseSchema]:
+    """
+    List all available courses.
+    """
+    result = await session.execute(
+        select(Course).where(Course.is_active == True)
+    )
+    courses = result.scalars().all()
+    return courses
+
+
+@router.get("/practice")
+async def get_practice_exercises(session: DbSession) -> list[ExerciseSchema]:
+    """
+    Get 10 random exercises for practice mode.
+    """
+    # Simply get random exercises for now
+    result = await session.execute(
+        select(Exercise).order_by(func.random()).limit(10)
+    )
+    exercises = result.scalars().all()
+    return exercises
+
+
+@router.post("/practice/complete")
+async def complete_practice(
+    current_user: CurrentUser,
+    session: DbSession,
+) -> dict:
+    """
+    Complete practice and restore 1 heart.
+    """
+    xp_earned = 15 # Flat XP for practice
+    
+    # Update user XP
+    current_user.xp += xp_earned
+    
+    # Restore 1 heart if not full
+    if current_user.hearts < 5:
+        current_user.hearts += 1
+        
+    session.add(current_user)
+    await session.commit()
+    
+    return {
+        "message": "Practice completed!",
+        "xp_earned": xp_earned,
+        "new_xp": current_user.xp,
+        "new_hearts": current_user.hearts
+    }
+
+
+@router.get("/{course_id}")
+async def get_course(course_id: UUID, session: DbSession) -> CourseWithUnits:
+    """
+    Get course details with units.
+    """
+    result = await session.execute(
+        select(Course)
+        .where(Course.id == course_id)
+        .options(selectinload(Course.units))
+    )
+    course = result.scalar_one_or_none()
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+    
+    return course
+
+
+@router.get("/{course_id}/units/{unit_id}")
+async def get_unit(course_id: UUID, unit_id: UUID, session: DbSession) -> UnitWithLessons:
+    """
+    Get unit with lessons.
+    """
+    result = await session.execute(
+        select(Unit)
+        .where(Unit.id == unit_id, Unit.course_id == course_id)
+        .options(selectinload(Unit.lessons))
+    )
+    unit = result.scalar_one_or_none()
+    
+    if not unit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unit not found"
+        )
+    
+    return unit
+
+
+@router.get("/lessons/{lesson_id}")
+async def get_lesson(lesson_id: UUID, session: DbSession) -> LessonWithExercises:
+    """
+    Get lesson with exercises.
+    """
+    result = await session.execute(
+        select(Lesson)
+        .where(Lesson.id == lesson_id)
+        .options(selectinload(Lesson.exercises))
+    )
+    lesson = result.scalar_one_or_none()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    return lesson
+
+
+@router.post("/lessons/{lesson_id}/complete")
+async def complete_lesson(
+    lesson_id: UUID,
+    mistakes: int = 0,
+    current_user: CurrentUser = None,
+    session: DbSession = None,
+) -> dict:
+    """
+    Mark lesson as complete and award XP.
+    """
+    # Get lesson
+    result = await session.execute(
+        select(Lesson).where(Lesson.id == lesson_id)
+    )
+    lesson = result.scalar_one_or_none()
+    
+    if not lesson:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lesson not found"
+        )
+    
+    # Check if already completed
+    result = await session.execute(
+        select(UserProgress).where(
+            UserProgress.user_id == current_user.id,
+            UserProgress.lesson_id == lesson_id,
+        )
+    )
+    existing_progress = result.scalar_one_or_none()
+    
+    if existing_progress:
+        # Already completed, no XP awarded
+        return {"message": "Lesson already completed", "xp_earned": 0}
+    
+    # Create progress record
+    xp_earned = lesson.xp_reward
+    progress = UserProgress(
+        user_id=current_user.id,
+        lesson_id=lesson_id,
+        xp_earned=xp_earned,
+        mistakes=mistakes,
+    )
+    session.add(progress)
+    
+    # Update user XP
+    current_user.xp += xp_earned
+    session.add(current_user)
+    
+    await session.commit()
+    
+    return {
+        "message": "Lesson completed!",
+        "xp_earned": xp_earned,
+        "new_xp": current_user.xp,
+        "new_hearts": current_user.hearts
+    }
+
+
+@router.get("/progress/me")
+async def get_my_progress(current_user: CurrentUser, session: DbSession) -> dict:
+    """
+    Get current user's learning progress.
+    """
+    result = await session.execute(
+        select(UserProgress)
+        .where(UserProgress.user_id == current_user.id)
+        .options(selectinload(UserProgress.lesson))
+    )
+    progress = result.scalars().all()
+    
+    return {
+        "total_lessons_completed": len(progress),
+        "total_xp": current_user.xp,
+        "progress": progress,
+    }
+
+
