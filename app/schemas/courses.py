@@ -28,6 +28,17 @@ class UnitSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class CharacterSchema(BaseModel):
+    id: UUID
+    course_id: UUID
+    character: str
+    transliteration: str
+    type: str
+    audio_url: Optional[str] = None
+    order_index: int
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ExerciseSchema(BaseModel):
     id: UUID
     lesson_id: UUID

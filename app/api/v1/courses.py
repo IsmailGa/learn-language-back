@@ -5,9 +5,9 @@ from sqlalchemy import select, func # Changed from sqlmodel.select to sqlalchemy
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.course import Course, Unit, Lesson, Exercise # Added Exercise
+from app.models.course import Course, Unit, Lesson, Exercise, Character
 from app.models.progress import UserProgress
-from app.schemas.courses import CourseBase, CourseCreate, CourseUpdate, Course as CourseSchema, CourseWithUnits, UnitWithLessons, LessonWithExercises, ExerciseSchema
+from app.schemas.courses import CourseBase, CourseCreate, CourseUpdate, Course as CourseSchema, CourseWithUnits, UnitWithLessons, LessonWithExercises, ExerciseSchema, CharacterSchema
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -84,6 +84,21 @@ async def get_course(course_id: UUID, session: DbSession) -> CourseWithUnits:
         )
     
     return course
+
+
+@router.get("/{course_id}/characters")
+async def get_course_characters(course_id: UUID, session: DbSession) -> list[CharacterSchema]:
+    """
+    Get all alphabet characters for a specific course.
+    """
+    result = await session.execute(
+        select(Character)
+        .where(Character.course_id == course_id)
+        .order_by(Character.order_index)
+    )
+    characters = result.scalars().all()
+    
+    return characters
 
 
 @router.get("/{course_id}/units/{unit_id}")

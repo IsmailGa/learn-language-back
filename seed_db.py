@@ -8,7 +8,8 @@ sys.path.append(os.getcwd())
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.core.db import async_session_maker
-from app.models.course import Course, Unit, Lesson, Exercise
+from app.models.course import Course, Unit, Lesson, Exercise, Character
+from app.models.progress import UserProgress
 
 async def seed_db():
     async with async_session_maker() as session:
@@ -24,13 +25,18 @@ async def seed_db():
                 lessons_res = await session.execute(select(Lesson).where(Lesson.unit_id == unit.id))
                 lessons = lessons_res.scalars().all()
                 for lesson in lessons:
-                    # Delete exercises first
+                    # Delete user progress first
+                    await session.execute(UserProgress.__table__.delete().where(UserProgress.lesson_id == lesson.id))
+                    # Then delete exercises
                     await session.execute(Exercise.__table__.delete().where(Exercise.lesson_id == lesson.id))
                     # Then delete lesson
                     await session.delete(lesson)
                 # Delete unit
                 await session.delete(unit)
             
+            # Delete characters
+            await session.execute(Character.__table__.delete().where(Character.course_id == existing_course.id))
+
             # Finally delete course
             await session.delete(existing_course)
             await session.flush()
@@ -46,6 +52,46 @@ async def seed_db():
         )
         session.add(course)
         await session.flush() # To get the course.id
+
+        # Create Characters (Alphabet)
+        characters_data = [
+            {"char": "ㅏ", "trans": "а", "type": "vowel"},
+            {"char": "ㅑ", "trans": "я", "type": "vowel"},
+            {"char": "ㅓ", "trans": "о", "type": "vowel"},
+            {"char": "ㅕ", "trans": "ё", "type": "vowel"},
+            {"char": "ㅗ", "trans": "о", "type": "vowel"},
+            {"char": "ㅛ", "trans": "ё", "type": "vowel"},
+            {"char": "ㅜ", "trans": "у", "type": "vowel"},
+            {"char": "ㅠ", "trans": "ю", "type": "vowel"},
+            {"char": "ㅡ", "trans": "ы", "type": "vowel"},
+            {"char": "ㅣ", "trans": "и", "type": "vowel"},
+
+            {"char": "ㄱ", "trans": "г/к", "type": "consonant"},
+            {"char": "ㄴ", "trans": "н", "type": "consonant"},
+            {"char": "ㄷ", "trans": "д/т", "type": "consonant"},
+            {"char": "ㄹ", "trans": "р/ль", "type": "consonant"},
+            {"char": "ㅁ", "trans": "м", "type": "consonant"},
+            {"char": "ㅂ", "trans": "б/п", "type": "consonant"},
+            {"char": "ㅅ", "trans": "с", "type": "consonant"},
+            {"char": "ㅇ", "trans": "н (нг)", "type": "consonant"},
+            {"char": "ㅈ", "trans": "дж", "type": "consonant"},
+            {"char": "ㅊ", "trans": "чх", "type": "consonant"},
+            {"char": "ㅋ", "trans": "кх", "type": "consonant"},
+            {"char": "ㅌ", "trans": "тх", "type": "consonant"},
+            {"char": "ㅍ", "trans": "пх", "type": "consonant"},
+            {"char": "ㅎ", "trans": "х", "type": "consonant"},
+        ]
+        
+        for idx, c_data in enumerate(characters_data):
+            char = Character(
+                course_id=course.id,
+                character=c_data["char"],
+                transliteration=c_data["trans"],
+                type=c_data["type"],
+                order_index=idx
+            )
+            session.add(char)
+        await session.flush()
 
         # Create Units
         units_data = [
