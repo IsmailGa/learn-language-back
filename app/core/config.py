@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # Email
     MAIL_USERNAME: str = Field(default="")
     MAIL_PASSWORD: str = Field(default="")
-    MAIL_FROM: str = Field(default="")
+    MAIL_FROM: str = Field(default="noreply@example.com")
     MAIL_PORT: int = Field(default=587)
     MAIL_SERVER: str = Field(default="")
     MAIL_STARTTLS: bool = Field(default=True)

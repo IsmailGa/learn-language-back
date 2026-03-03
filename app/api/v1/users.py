@@ -21,10 +21,63 @@ async def get_current_user_info(current_user: CurrentUser):
         hearts=current_user.hearts,
         xp=current_user.xp,
         streak=current_user.streak,
+        current_course_id=current_user.current_course_id,
     )
 
 
-@router.post("/me/refill-hearts")
+@router.post("/me/select-course")
+async def select_course(
+    course_id: str,
+    current_user: CurrentUser,
+    session: DbSession
+):
+    """
+    Select current course for the user.
+    """
+    from sqlalchemy import select
+    from app.models.user_course import UserCourse
+    from uuid import UUID
+    
+    try:
+        course_uuid = UUID(course_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid course ID"
+        )
+    
+    # Check if course exists
+    from app.models.course import Course
+    course_exists = await session.execute(select(Course).where(Course.id == course_uuid))
+    if not course_exists.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found"
+        )
+        
+    current_user.current_course_id = course_uuid
+    session.add(current_user)
+    
+    # Ensure UserCourse entry exists
+    user_course_result = await session.execute(
+        select(UserCourse).where(
+            UserCourse.user_id == current_user.id,
+            UserCourse.course_id == course_uuid
+        )
+    )
+    user_course = user_course_result.scalar_one_or_none()
+    
+    if not user_course:
+        user_course = UserCourse(
+            user_id=current_user.id,
+            course_id=course_uuid
+        )
+        session.add(user_course)
+    
+    await session.commit()
+    
+    return {"message": "Course selected successfully", "current_course_id": str(course_uuid)}
+
 async def refill_hearts(current_user: CurrentUser, session: DbSession):
     """
     Refill user's hearts (max 5).

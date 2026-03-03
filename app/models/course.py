@@ -5,6 +5,7 @@ from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
     from app.models.progress import UserProgress
+    from app.models.language import Language
 
 
 class Course(SQLModel, table=True):
@@ -13,9 +14,14 @@ class Course(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     title: str = Field(max_length=200)
     description: Optional[str] = Field(default=None)
-    source_lang: str = Field(max_length=10)
-    target_lang: str = Field(max_length=10)
+    
+    source_lang_id: uuid.UUID = Field(foreign_key="languages.id", index=True)
+    target_lang_id: uuid.UUID = Field(foreign_key="languages.id", index=True)
+    
     is_active: bool = Field(default=True)
+    
+    source_lang: "Language" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Course.source_lang_id]"})
+    target_lang: "Language" = Relationship(sa_relationship_kwargs={"foreign_keys": "[Course.target_lang_id]"})
     
     units: list["Unit"] = Relationship(back_populates="course")
     characters: list["Character"] = Relationship(back_populates="course")
