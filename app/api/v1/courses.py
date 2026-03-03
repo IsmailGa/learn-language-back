@@ -5,21 +5,42 @@ from sqlalchemy import select, func # Changed from sqlmodel.select to sqlalchemy
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.course import Course, Unit, Lesson, Exercise # Added Exercise
+from app.models.course import Course, Unit, Lesson, Exercise, Character
+from app.models.language import Language
 from app.models.progress import UserProgress
-from app.schemas.courses import CourseBase, CourseCreate, CourseUpdate, Course as CourseSchema, CourseWithUnits, UnitWithLessons, LessonWithExercises, ExerciseSchema
+from app.schemas.courses import CourseBase, CourseCreate, CourseUpdate, Course as CourseSchema, CourseWithUnits, UnitWithLessons, LessonWithExercises, ExerciseSchema, CharacterSchema, LanguageSchema
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
 
-@router.get("")
-async def list_courses(session: DbSession) -> list[CourseSchema]:
+@router.get("/languages", response_model=list[LanguageSchema])
+async def list_languages(session: DbSession):
     """
-    List all available courses.
+    List all available languages.
     """
-    result = await session.execute(
-        select(Course).where(Course.is_active == True)
+    result = await session.execute(select(Language))
+    return result.scalars().all()
+
+
+@router.get("", response_model=list[CourseSchema])
+async def list_courses(
+    session: DbSession,
+    source_lang_id: Optional[UUID] = None,
+    target_lang_id: Optional[UUID] = None
+):
+    """
+    List available courses.
+    """
+    query = select(Course).where(Course.is_active == True).options(
+        selectinload(Course.source_lang),
+        selectinload(Course.target_lang)
     )
+    if source_lang_id:
+        query = query.where(Course.source_lang_id == source_lang_id)
+    if target_lang_id:
+        query = query.where(Course.target_lang_id == target_lang_id)
+        
+    result = await session.execute(query)
     courses = result.scalars().all()
     return courses
 
@@ -73,7 +94,11 @@ async def get_course(course_id: UUID, session: DbSession) -> CourseWithUnits:
     result = await session.execute(
         select(Course)
         .where(Course.id == course_id)
-        .options(selectinload(Course.units))
+        .options(
+            selectinload(Course.units),
+            selectinload(Course.source_lang),
+            selectinload(Course.target_lang)
+        )
     )
     course = result.scalar_one_or_none()
     
@@ -84,6 +109,21 @@ async def get_course(course_id: UUID, session: DbSession) -> CourseWithUnits:
         )
     
     return course
+
+
+@router.get("/{course_id}/characters")
+async def get_course_characters(course_id: UUID, session: DbSession) -> list[CharacterSchema]:
+    """
+    Get all alphabet characters for a specific course.
+    """
+    result = await session.execute(
+        select(Character)
+        .where(Character.course_id == course_id)
+        .order_by(Character.order_index)
+    )
+    characters = result.scalars().all()
+    
+    return characters
 
 
 @router.get("/{course_id}/units/{unit_id}")
@@ -173,10 +213,24 @@ async def complete_lesson(
     )
     session.add(progress)
     
-    # Update user XP
+    # Update user XP (global)
     current_user.xp += xp_earned
     session.add(current_user)
     
+    # Update per-course XP
+    if current_user.current_course_id:
+        from app.models.user_course import UserCourse
+        uc_result = await session.execute(
+            select(UserCourse).where(
+                UserCourse.user_id == current_user.id,
+                UserCourse.course_id == current_user.current_course_id
+            )
+        )
+        user_course = uc_result.scalar_one_or_none()
+        if user_course:
+            user_course.xp += xp_earned
+            session.add(user_course)
+            
     await session.commit()
     
     return {
