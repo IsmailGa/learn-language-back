@@ -6,6 +6,7 @@ from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
     from app.models.progress import UserProgress
+    from app.models.user_course import UserCourse
 
 
 class User(SQLModel, table=True):
@@ -34,7 +35,7 @@ class User(SQLModel, table=True):
     
     # Gamification
     hearts: int = Field(default=5)
-    xp: int = Field(default=0)
+    xp: int = Field(default=0) # Global XP
     streak: int = Field(default=0)
     last_heart_refill_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -43,4 +44,7 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
+    current_course_id: Optional[uuid.UUID] = Field(default=None, foreign_key="courses.id")
     progress: list["UserProgress"] = Relationship(back_populates="user")
+    user_courses: list["UserCourse"] = Relationship(back_populates="user")
+

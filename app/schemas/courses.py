@@ -5,8 +5,8 @@ from uuid import UUID
 class CourseBase(BaseModel):
     title: str
     description: Optional[str] = None
-    source_lang: str = "ru"
-    target_lang: str = "ko"
+    source_lang_id: UUID
+    target_lang_id: UUID
     is_active: bool = True
 
 class CourseCreate(CourseBase):
@@ -15,15 +15,34 @@ class CourseCreate(CourseBase):
 class CourseUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    source_lang: Optional[str] = None
-    target_lang: Optional[str] = None
+    source_lang_id: Optional[UUID] = None
+    target_lang_id: Optional[UUID] = None
     is_active: Optional[bool] = None
+
+class LanguageSchema(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    native_name: str
+    flag_emoji: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
 
 class UnitSchema(BaseModel):
     id: UUID
     course_id: UUID
     title: str
     description: Optional[str] = None
+    order_index: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class CharacterSchema(BaseModel):
+    id: UUID
+    course_id: UUID
+    character: str
+    transliteration: str
+    type: str
+    audio_url: Optional[str] = None
     order_index: int
 
     model_config = ConfigDict(from_attributes=True)
@@ -55,6 +74,8 @@ class LessonWithExercises(LessonSchema):
 
 class Course(CourseBase):
     id: UUID
+    source_lang: Optional[LanguageSchema] = None
+    target_lang: Optional[LanguageSchema] = None
     model_config = ConfigDict(from_attributes=True)
 
 class CourseWithUnits(Course):

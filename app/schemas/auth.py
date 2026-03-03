@@ -59,6 +59,8 @@ class UserResponse(BaseModel):
     hearts: int
     xp: int
     streak: int
+    current_course_id: Optional[UUID] = None
+
     
     class Config:
         from_attributes = True

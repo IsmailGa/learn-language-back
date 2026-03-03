@@ -22,5 +22,13 @@ async def send_verification_email(email: str, token: str):
         subtype=MessageType.html
     )
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
+    if not settings.MAIL_SERVER or not settings.MAIL_USERNAME:
+        print("Email not configured, skipping verification email.")
+        return
+
+    try:
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
