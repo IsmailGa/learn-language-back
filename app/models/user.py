@@ -14,7 +14,6 @@ class User(SQLModel, table=True):
     
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
-    # Auth fields - support multiple auth methods
     telegram_id: Optional[int] = Field(
         default=None, 
         sa_column=Column(BigInteger, unique=True, index=True, nullable=True)
@@ -25,25 +24,20 @@ class User(SQLModel, table=True):
     )
     hashed_password: Optional[str] = Field(default=None)
     
-    # Verification
     is_verified: bool = Field(default=False)
     verification_token: Optional[str] = Field(default=None)
     
-    # Profile
     username: Optional[str] = Field(default=None, max_length=100)
     avatar_url: Optional[str] = Field(default=None)
     
-    # Gamification
     hearts: int = Field(default=5)
-    xp: int = Field(default=0) # Global XP
+    xp: int = Field(default=0)
     streak: int = Field(default=0)
     last_heart_refill_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
-    # Relationships
     current_course_id: Optional[uuid.UUID] = Field(default=None, foreign_key="courses.id")
     progress: list["UserProgress"] = Relationship(back_populates="user")
     user_courses: list["UserCourse"] = Relationship(back_populates="user")

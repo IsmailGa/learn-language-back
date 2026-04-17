@@ -46,14 +46,9 @@ async def create_user(data: EmailRegisterRequest, session: DbSession) -> TokenRe
     await session.commit()
     await session.refresh(user)
     
-    # Send verification email
     from app.services.email import send_verification_email
     await send_verification_email(user.email, user.verification_token)
     
-    # We can return token, but maybe restricting access is better. 
-    # For now, let's return token but with is_verified=False in user object effectively.
-    # Or just return success message? The schema expects TokenResponse.
-    # Let's verify if we want to auto-login.
     
     token = security.create_access_token(user.id)
     return TokenResponse(access_token=token)

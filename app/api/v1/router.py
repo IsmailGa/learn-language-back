@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, users, courses
+from app.api.v1 import auth, users, courses, predict
 
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(auth.router)
 router.include_router(users.router)
 router.include_router(courses.router)
+router.include_router(predict.router, prefix="/predict", tags=["prediction"])
