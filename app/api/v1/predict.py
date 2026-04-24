@@ -29,7 +29,7 @@ MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.
 _model = None
 
 # Mapping classes to characters
-CHAR_MAP = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"]
+CHAR_MAP = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ", "ㅏ", "ㅑ", "ㅓ", "ㅕ", "ㅗ", "ㅛ", "ㅜ", "ㅠ", "ㅡ", "ㅣ"]
 
 def get_model():
     global _model
@@ -80,7 +80,10 @@ async def predict_character(request: PredictRequest):
         else:
             gray = img
             
-        _, thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)
+        # The frontend sends a white background with black strokes.
+        # We need to invert this to black background and white strokes for EMNIST.
+        # THRESH_BINARY_INV with threshold ~200 will turn white bg -> 0, black ink -> 255
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
         coords = cv2.findNonZero(thresh)
         
         if coords is None:
@@ -126,3 +129,12 @@ async def predict_character(request: PredictRequest):
     except Exception as e:
         logger.error(f"Error during prediction: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# Trigger reload 
+
+
+# Trigger reload 
+
+
+# reload v3
+
