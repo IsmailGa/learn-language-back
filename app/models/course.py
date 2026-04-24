@@ -34,7 +34,7 @@ class Character(SQLModel, table=True):
     course_id: uuid.UUID = Field(foreign_key="courses.id")
     character: str = Field(max_length=50)
     transliteration: str = Field(max_length=50)
-    type: str = Field(max_length=50) # e.g. "vowel", "consonant"
+    type: str = Field(max_length=50)
     audio_url: Optional[str] = Field(default=None)
     order_index: int = Field(default=0)
     

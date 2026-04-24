@@ -18,6 +18,5 @@ class UserProgress(SQLModel, table=True):
     xp_earned: int = Field(default=0)
     mistakes: int = Field(default=0)
     
-    # Relationships
     user: "User" = Relationship(back_populates="progress")
     lesson: "Lesson" = Relationship(back_populates="progress")
