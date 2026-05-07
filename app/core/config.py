@@ -4,7 +4,7 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Language Learning Platform"
+    APP_NAME: str = "TilGo"
     DEBUG: bool = False
     
     SECRET_KEY: str = Field(default="change-me-in-production")
